@@ -1,5 +1,6 @@
-// 물리엔진을 구현하는 라이브러리인 Matter.js가 로드가 되지 않았다면 콘솔에 에러를 뜨게 하는 코드를 작성해봅시다!
-// 콘솔에 에러 로그를 남기려면 어떤 메서드를 이용해야 한다고 했었죠?
+if (typeof Matter === 'undefined') {
+    console.error('Matter.js 라이브러리가 로드되지 않았어요');
+}
 
 const Engine = Matter.Engine; 
 const Render = Matter.Render;
@@ -142,10 +143,13 @@ function startGame() {
     }, 250);
     
     // 과일을 떨어뜨리는 마우스 클릭 이벤트 리스너 코드를 작성해봅시다.
+    Events.on(mouseConstraint, 'mouseup', handleFruitDrop)
 
     // 미리보기 과일 위치를 업데이트하는 마우스 이동 이벤트 리스너 코드를 작성해봅시다.
+    Events.on(mouseConstraint, 'mousemove', handleFruitPreviewMove)
     
     // 과일 합치기 및 게임 오버를 감지하는 충돌 이벤트 리스너 코드를 작성해봅시다.
+    Events.on(engine, 'collisionStart', handleCollision)
 
     Events.on(engine, 'afterUpdate', checkGameOver);
 }
@@ -187,18 +191,24 @@ function setNextFruitSize() {
     // 다음에 떨어뜨릴 과일의 크기를 설정하는 함수의 코드를 작성해봅시다.
 
     // 0부터 4까지의 랜덤한 과일 크기 인덱스를 가장 작은 5가지 과일 중 선택하고,
+    nextDroppingFruitSizeIndex = Math.floor(Math.random() * 5)
     // 다음에 떨어뜨릴 과일 이미지를 업데이트합니다.
+    gameNextFruitImg.src = FRUIT_DATA[nextDroppingFruitSizeIndex].img
 }
 
 function addFruit(xPosition) {
     // 과일을 떨어뜨리는 함수입니다.
 
     // 게임 상태가 '준비'가 아니면 함수의 실행을 중단하는 코드를 작성해봅시다.
+    if (currentGameState !== GAME_STATE.READY)
+        return;
 
     gameSounds.click.play();
     currentGameState = GAME_STATE.DROP;
 
     // 현재 떨어뜨릴 과일을 생성하는 코드를 작성해봅시다. (HINT: 물리세계에 과일을 추가하는 로직이 있어야 해요!)
+    const newFruit = createFruitBody(xPosition, PREVIEW_BALL_HEIGHT, currentDroppingFruitSizeIndex)
+    Composite.add(world, newFruit)
 
     currentDroppingFruitSizeIndex = nextDroppingFruitSizeIndex;
     setNextFruitSize();
@@ -215,22 +225,32 @@ function addFruit(xPosition) {
             Composite.add(world, previewFruitBody);
 
             // 게임 상태를 다시 '준비'로 변경하는 코드를 작성해봅시다.
+            currentGameState = GAME_STATE.READY
         }
     }, 500);
 }
 
 function handleFruitDrop(event) {
     // 마우스 클릭 위치의 x좌표의 위치에 과일을 떨어뜨리는 코드를 작성해봅시다!
+    addFruit(event.mouse.position.x)
 }
 
 function handleFruitPreviewMove(event) {
     // 게임 상태가 '준비'이고 미리보기 과일이 존재하면,
-    // 미리보기 과일의 x좌표를 마우스의 x좌표로 업데이트하는 코드를 작성해봅시다!
+    if (currentGameState === GAME_STATE.READY) {
+        // 미리보기 과일의 x좌표를 마우스의 x좌표로 업데이트하는 코드를 작성해봅시다!
+        previewFruitBody.position.x = event.mouse.position.x
+    }
+    
 }
 
 function calculateScore() {
     let newScore = 0;
-    // 합쳐진 과일 횟수를 기반으로 점수를 계산하는 코드를 작성해봅시다!
+    // 합쳐진 과일 횟수를 기반으로 점수를 계산하는 코드를 작성해봅시다
+    fruitsMergedCount.forEach((count, sizeIndex) => {
+        newScore += FRUIT_DATA[sizeIndex].scoreValue * count
+    })
+
     currentScore = newScore;
     gameScoreElement.innerText = currentScore;
 }
@@ -303,6 +323,7 @@ function mergeFruits(fruit1, fruit2) {
     }
 
     // 합쳐진 과일 횟수를 업데이트하는 코드를 작성해봅시다.
+    fruitsMergedCount[fruit1.sizeIndex]++
 
     gameSounds.pop[fruit1.sizeIndex].play();
 
@@ -315,6 +336,7 @@ function mergeFruits(fruit1, fruit2) {
     Composite.add(world, newFruit);
 
     // 점수를 업데이트 하는 코드를 작성해봅시다. 아까 선언한 함수 중 어떤 걸 이용해야할지 잘 생각해보새요!
+    calculateScore()
 
     addPopEffect(midPosX, midPosY, fruit1.radius);
 }
@@ -353,6 +375,9 @@ function loseGame() {
     Events.off(engine, 'afterUpdate', checkGameOver);
 
     // '다시 시도' 버튼 클릭 시 페이지가 새로고침이 되도록 코드를 작성해봅시다.
+    document.getElementById('game-end-link').onclick = () => {
+        location.reload()
+    }
 }
 
 function resizeCanvas() {
